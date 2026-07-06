@@ -31,6 +31,8 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
   bool _outOfHearts = false;
   bool _heartRestored = false;
   int _xpGained = 0;
+  bool _isChecking = false; // AI 判题中
+  bool _isCorrectAnswer = false; // 缓存的判题结果
 
   @override
   void initState() {
@@ -63,7 +65,30 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
     if (_selectedAnswer == null) return;
 
     final question = _questions[_currentIndex];
-    final isCorrect = _checkCorrect(question, _selectedAnswer!);
+
+    // 先做本地判断
+    var isCorrect = _checkCorrect(question, _selectedAnswer!);
+
+    // 填空题本地不匹配时，调用 AI 判断语义是否等价
+    if (!isCorrect && question.type == QuestionType.fillBlank) {
+      setState(() => _isChecking = true);
+      try {
+        final aiService = ref.read(openaiServiceProvider);
+        final hasKey = await aiService.hasApiKey();
+        if (hasKey) {
+          isCorrect = await aiService.judgeFillBlankAnswer(
+            question: question.content,
+            userAnswer: _selectedAnswer!,
+            correctAnswer: question.answer,
+          );
+        }
+      } catch (_) {
+        // AI 判题失败，保持本地判断结果
+      }
+      setState(() => _isChecking = false);
+    }
+
+    _isCorrectAnswer = isCorrect;
 
     // 记录每日打卡
     final gameService = ref.read(gamificationServiceProvider);
@@ -115,6 +140,8 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
         _currentIndex++;
         _selectedAnswer = null;
         _showResult = false;
+        _isCorrectAnswer = false;
+        _isChecking = false;
       });
     } else {
       // 完成
@@ -236,7 +263,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
 
     final stats = ref.watch(userStatsProvider);
     final question = _questions[_currentIndex];
-    final isCorrect = _showResult && _checkCorrect(question, _selectedAnswer ?? '');
+    final isCorrect = _showResult && _isCorrectAnswer;
 
     return Scaffold(
       body: SafeArea(
@@ -352,6 +379,40 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
   }
 
   Widget _buildBottomBar(bool isCorrect) {
+    if (_isChecking) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppColors.border, width: 2)),
+        ),
+        child: const SafeArea(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: AppColors.green,
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'AI 判题中...',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.green,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (!_showResult) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -363,7 +424,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
           child: DuoButton(
             label: '检查',
             color: AppColors.green,
-            enabled: _selectedAnswer != null,
+            enabled: _selectedAnswer != null && !_isChecking,
             width: double.infinity,
             onPressed: _checkAnswer,
           ),

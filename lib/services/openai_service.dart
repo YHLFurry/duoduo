@@ -227,4 +227,45 @@ class OpenAIService {
 
     return choices[0]['message']['content'] as String;
   }
+
+  /// AI 判断填空题答案是否正确
+  /// 
+  /// 当用户答案与标准答案不完全匹配时，调用大模型判断语义是否等价。
+  /// 返回 true 表示正确，false 表示错误。
+  Future<bool> judgeFillBlankAnswer({
+    required String question,
+    required String userAnswer,
+    required String correctAnswer,
+  }) async {
+    final systemPrompt = '你是一个判题助手。你的任务是判断用户的填空题答案是否与标准答案在语义上等价。'
+        '允许的情况包括但不限于：同义词、近义词、不同的表述方式、大小写差异、标点差异、简称与全称。'
+        '你只需要回答 JSON 格式：{"correct": true} 或 {"correct": false}，不要输出其他内容。';
+
+    final userContent = '题目：$question\n'
+        '标准答案：$correctAnswer\n'
+        '用户答案：$userAnswer\n'
+        '请判断用户答案是否正确。';
+
+    try {
+      final result = await chatCompletion(
+        systemPrompt: systemPrompt,
+        userContent: userContent,
+        temperature: 0.0,
+      );
+
+      // 解析 JSON 结果
+      final cleaned = result.trim();
+      // 尝试提取 JSON
+      final jsonMatch = RegExp(r'\{[^}]*\}').firstMatch(cleaned);
+      if (jsonMatch != null) {
+        final json = jsonDecode(jsonMatch.group(0)!) as Map<String, dynamic>;
+        return json['correct'] == true;
+      }
+      // 如果不是 JSON，尝试直接匹配 true/false
+      return cleaned.toLowerCase().contains('true');
+    } catch (e) {
+      // AI 判题失败时，回退到不通过
+      return false;
+    }
+  }
 }
