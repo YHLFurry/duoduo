@@ -53,6 +53,8 @@ class GamificationService {
   }
 
   /// 答错一题(扣心)
+  /// 
+  /// 注：无限血量模式已启用，心数不会减少
   Future<UserStats> onWrongAnswer() async {
     var stats = await getStats();
 
@@ -66,10 +68,11 @@ class GamificationService {
       stats = stats.copyWith(lastStudyDate: DateTime.now());
     }
 
-    // 扣心
-    if (stats.hearts > 0) {
-      stats = stats.copyWith(hearts: stats.hearts - 1);
-    }
+    // 无限血量模式：不扣心
+    // 原逻辑已注释：
+    // if (stats.hearts > 0) {
+    //   stats = stats.copyWith(hearts: stats.hearts - 1);
+    // }
 
     await _db.updateUserStats(stats);
     return stats;
@@ -100,7 +103,9 @@ class GamificationService {
   }
 
   /// 检查心数是否为0
-  bool isOutOfHearts(UserStats stats) => stats.hearts <= 0;
+  /// 
+  /// 注：无限血量模式已启用，始终返回 false
+  bool isOutOfHearts(UserStats stats) => false; // 原逻辑: stats.hearts <= 0
 
   /// 恢复一颗心
   Future<UserStats> refillOneHeart() async {
