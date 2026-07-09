@@ -19,11 +19,12 @@ class ContentAnalyzer {
   static const String _systemPrompt = '''你是一个专业的教育内容分析专家。你的任务是分析用户提供的文本或图片内容，提取关键知识点，并生成多种类型的题目。
 
 ## 要求：
-1. 仔细阅读/分析内容，提取 5-10 个核心知识点
+1. 仔细阅读/分析内容，提取所有核心知识点
 2. 为每个知识点生成合适类型的题目
 3. 题目类型要多样化：选择题、填空题、判断题、匹配题、排序题
 4. 题目难度适中，能检验对内容的理解
 5. 每道题都要有详细的解析说明
+6. **重要：至少生成 20 道题目以上，充分覆盖内容中的各个知识点**
 
 ## 题型格式说明：
 
@@ -96,8 +97,8 @@ class ContentAnalyzer {
 
 ## 注意事项：
 - title 要简洁有力，概括内容主题
-- 至少生成 5 道题，最多 10 道
-- 尽量包含至少 2 种题型
+- **必须生成 20 道题以上** 以充分测试学习者对内容的理解
+- 尽量包含至少 3-4 种题型混合，让题目更有趣
 - 解析要清楚说明为什么这个答案是对的
 - 如果内容是图片，仔细识别图片中的文字和图表信息
 - 所有文本使用中文''';
@@ -110,7 +111,7 @@ class ContentAnalyzer {
     String? imageBase64,
   }) async {
     final userContent = StringBuffer();
-    userContent.writeln('请分析以下内容并生成题目：');
+    userContent.writeln('请分析以下内容并生成20道以上的题目：');
     userContent.writeln();
     if (text.isNotEmpty) {
       userContent.writeln('--- 文本内容 ---');
